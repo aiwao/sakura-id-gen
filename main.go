@@ -15,27 +15,24 @@ import (
 	instaddr "github.com/aiwao/instaddr_api"
 	"github.com/aiwao/rik"
 	"github.com/corpix/uarand"
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/lib/pq"
 )
 
 const registrationURL = "https://secure.sakura.ad.jp/serviceidp/api/v1/user/registration/"
 
 func main() {
-	db, err := sql.Open("sqlite3", "accounts.db")
+	dbHost := os.Getenv("DB_HOST")
+	dbPort := os.Getenv("DB_PORT")
+	dbUser := os.Getenv("DB_USER")
+	dbPass := os.Getenv("DB_PASS")
+	dbName := os.Getenv("DB_NAME")
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", dbHost, dbPort, dbUser, dbPass, dbName)
+	log.Println("Database: " + dsn)
+	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	defer db.Close()
-
-	scheme, err := os.ReadFile("scheme.sql")
-	if err != nil {
-		log.Fatalln(err)
-	}
-	
-	_, err = db.Exec(string(scheme))
-	if err != nil {
-		log.Fatalln(err)
-	}
 
 	acc, err := instaddr.NewAccount(instaddr.Options{})
 	if err != nil {
@@ -59,7 +56,7 @@ func main() {
 			continue
 		}
 		email := mailAcc.Address
-		fmt.Println(mailAcc.Address)
+		log.Println("New mail address: "+mailAcc.Address)
 
 		res, err := rik.Post(registrationURL+"email/").
 			Header("User-agent", ua).
@@ -73,7 +70,7 @@ func main() {
 			log.Println(err)
 			continue
 		}
-		fmt.Printf("email: %d\n", res.StatusCode)
+		log.Printf("Register email status: %d\n", res.StatusCode)
 
 		verifyCode := ""
 		for {
@@ -111,7 +108,7 @@ func main() {
 		if verifyCode == "" {
 			continue
 		}
-		fmt.Printf("verify code found: %s\n", verifyCode)
+		log.Printf("Received verification code: %s\n", verifyCode)
 
 		res, err = rik.Post(registrationURL+"code/").
 			Header("User-agent", ua).
@@ -125,7 +122,7 @@ func main() {
 			log.Println(err)
 			continue
 		}
-		fmt.Printf("code: %d\n", res.StatusCode)
+		log.Printf("Code verification status: %d\n", res.StatusCode)
 		
 		password := randStr()
 		res, err = rik.Post(registrationURL).
@@ -141,15 +138,16 @@ func main() {
 			log.Println(err)
 			continue
 		}
-		fmt.Printf("registration: %d\n", res.StatusCode)
+		log.Printf("Registration status: %d\n", res.StatusCode)
 		if res.StatusCode == http.StatusOK {
-			fmt.Printf("%s:%s\n", email, password)
-			_, err = db.Exec(`INSERT INTO accounts(email, password) VALUES (?, ?)`, email, password)
+			log.Println("New Sakura ID was created")
+			log.Printf("%s:%s\n", email, password)
+			_, err = db.Exec(`INSERT INTO accounts(email, password) VALUES ($1, $2)`, email, password)
 			if err != nil {
 				log.Println(err)
 				continue
 			}
-			fmt.Println("Account stored to the database")
+			log.Println("Account was stored to the database\n")
 		}
 	}
 }
