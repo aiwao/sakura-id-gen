@@ -5,6 +5,10 @@
 ```
 docker compose --env-file .env up
 ```
+Only start the database
+```
+docker compose up db
+```
 
 ## Connect to the database (example)
 ```
