@@ -36,5 +36,5 @@ volumes:
   postgres_data:
 networks:
   sakura-id-database:
-    name: sakura-id-database
+    external: true
  
