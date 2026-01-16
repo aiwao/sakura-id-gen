@@ -106,7 +106,7 @@ func main() {
 		log.Printf("Register email status: %d\n", res.StatusCode)
 
 		verifyCode := ""
-		for i := 0; i < 20; i++ {
+		for range 20 {
 			previews, err := acc.SearchMail(instaddr.SearchOptions{Query: email})
 			if err != nil {
 				log.Println(err)
