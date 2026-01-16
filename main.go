@@ -32,14 +32,34 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	defer db.Close()
-
+	defer db.Close()	
+	
 	acc, err := instaddr.NewAccount(instaddr.Options{})
 	if err != nil {
 		log.Fatalln(err)	
 	}
 
+	mailCnt := 0
+	newAccountFlag := false
 	for {
+		if mailCnt >= 50 || newAccountFlag {
+			newAcc, err := instaddr.NewAccount(instaddr.Options{})
+			if err != nil {
+				log.Println(err)
+			} else {
+				acc = newAcc
+				mailCnt = 0
+				newAccountFlag = false
+			}
+		}
+
+		instaddrAuthInfo, err := acc.GetAuthInfo(instaddr.Options{})
+		if err != nil {
+			newAccountFlag = true
+			log.Println(err)
+			continue
+		}
+
 		ua := uarand.GetRandom()
 		jar, err := cookiejar.New(nil)
 		if err != nil {
@@ -55,6 +75,8 @@ func main() {
 			log.Println(err)
 			continue
 		}
+		mailCnt++
+		
 		email := mailAcc.Address
 		log.Println("New mail address: "+mailAcc.Address)
 
@@ -142,7 +164,13 @@ func main() {
 		if res.StatusCode == http.StatusOK {
 			log.Println("New Sakura ID was created")
 			log.Printf("%s:%s\n", email, password)
-			_, err = db.Exec(`INSERT INTO accounts(email, password) VALUES ($1, $2)`, email, password)
+			_, err = db.Exec(
+				`INSERT INTO accounts(email, password, instaddr_id, instaddr_password) VALUES ($1, $2, $3, $4)`,
+				email,
+				password,
+				instaddrAuthInfo.AccountID,
+				instaddrAuthInfo.Password,
+			)
 			if err != nil {
 				log.Println(err)
 				continue
