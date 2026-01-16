@@ -19,6 +19,7 @@ import (
 )
 
 const registrationURL = "https://secure.sakura.ad.jp/serviceidp/api/v1/user/registration/"
+var domains []string
 
 func main() {
 	dbHost := os.Getenv("DB_HOST")
@@ -53,6 +54,16 @@ func main() {
 			}
 		}
 
+		domain := "mail4.uk"
+		if domains == nil || len(domains) == 0 {
+			domains, err = acc.GetMailDomains(instaddr.Options{})
+			if err != nil {
+				log.Println(err)
+			}
+		} else {
+			domain = domains[rand.IntN(len(domains))]
+		}
+
 		instaddrAuthInfo, err := acc.GetAuthInfo(instaddr.Options{})
 		if err != nil {
 			newAccountFlag = true
@@ -70,7 +81,7 @@ func main() {
 			Jar: jar,
 		}
 
-		mailAcc, err := acc.CreateAddressWithExpiration(instaddr.Options{})
+		mailAcc, err := acc.CreateAddressWithDomainAndName(instaddr.OptionsWithName{Name: randStr(39, false)}, domain)
 		if err != nil {
 			log.Println(err)
 			continue
@@ -95,7 +106,7 @@ func main() {
 		log.Printf("Register email status: %d\n", res.StatusCode)
 
 		verifyCode := ""
-		for {
+		for i := 0; i < 20; i++ {
 			previews, err := acc.SearchMail(instaddr.SearchOptions{Query: email})
 			if err != nil {
 				log.Println(err)
@@ -128,6 +139,7 @@ func main() {
 				}
 		}
 		if verifyCode == "" {
+			log.Println("failed to verify")
 			continue
 		}
 		log.Printf("Received verification code: %s\n", verifyCode)
@@ -146,7 +158,7 @@ func main() {
 		}
 		log.Printf("Code verification status: %d\n", res.StatusCode)
 		
-		password := randStr()
+		password := randStr(16, true)
 		res, err = rik.Post(registrationURL).
 			Header("User-agent", ua).
 			Header("X-Csrftoken", "undefined").
@@ -180,18 +192,25 @@ func main() {
 	}
 }
 
-const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const lower = "abcdefghijklmnopqrstuvwxyz"
+const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const alphabet = lower+upper
 const numbers = "0123456789"
-const passwordLength = 16
 
-func randStr() string {
-	b := make([]byte, passwordLength)
+func randStr(length int, modePassword bool) string {
+	b := make([]byte, length)
+	alphabetLen := len(alphabet)
+	numbersLen := len(numbers)
 	for i := range b {
 		var randChar byte
-		if i > passwordLength/2 {
-			randChar = numbers[rand.IntN(len(numbers))]
+		if modePassword {
+			if i > length/2 {
+				randChar = numbers[rand.IntN(numbersLen)]
+			} else {
+				randChar = alphabet[rand.IntN(alphabetLen)]
+			}
 		} else {
-			randChar = alphabet[rand.IntN(len(alphabet))]
+			randChar = (lower+numbers)[rand.IntN(len(lower)+numbersLen)]
 		}
 		b[i] = randChar
 	}
