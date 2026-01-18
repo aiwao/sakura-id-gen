@@ -28,10 +28,20 @@ func main() {
 	dbPass := os.Getenv("DB_PASS")
 	dbName := os.Getenv("DB_NAME")
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", dbHost, dbPort, dbUser, dbPass, dbName)
-	log.Println("Database: " + dsn)
-	db, err := sql.Open("postgres", dsn)
-	if err != nil {
-		log.Fatalln(err)
+	log.Println("Connect to the database: " + dsn)
+	var db *sql.DB
+	for range 10 {
+		tempDB, err := sql.Open("postgres", dsn)
+		if err == nil {
+			if err = tempDB.Ping(); err == nil {
+				db = tempDB
+				break
+			}
+		}
+    	time.Sleep(2 * time.Second)
+	}
+	if db == nil {
+		log.Fatalln("Database connection timed out")
 	}
 	defer db.Close()	
 	

@@ -3,8 +3,14 @@
 
 ## Start the ID generator
 ```
+docker compose --profile local-db --env-file .env up
+```
+
+Use shared network's db
+```
 docker compose --env-file .env up
 ```
+
 Only start the database
 ```
 docker compose up db
